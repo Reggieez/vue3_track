@@ -1,0 +1,87 @@
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath, URL } from 'node:url'
+import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
+import AutoImport from 'unplugin-auto-import/vite'
+import { VantResolver } from 'unplugin-vue-components/resolvers'
+import Components from 'unplugin-vue-components/vite'
+import { defineConfig, loadEnv } from 'vite'
+import viteCompression from 'vite-plugin-compression'
+import { createHtmlPlugin } from 'vite-plugin-html'
+import { mockDevServerPlugin } from 'vite-plugin-mock-dev-server'
+import { enableCDN } from './build/cdn'
+
+// 当前工作目录路径
+const root: string = process.cwd()
+
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  // 环境变量
+  const env = loadEnv(mode, root, '')
+  return {
+    base: env.VITE_PUBLIC_PATH || '/',
+    plugins: [
+      vue(),
+      vueJsx(),
+      mockDevServerPlugin(),
+      // 自动导入 Vue/Vue Router/Pinia API
+      AutoImport({
+        imports: ['vue', 'vue-router', 'pinia'],
+        dts: 'src/typings/auto-imports.d.ts',
+      }),
+      // vant 组件自动按需引入
+      Components({
+        dts: 'src/typings/components.d.ts',
+        resolvers: [VantResolver()],
+      }),
+      // 生产环境 gzip 压缩资源
+      viteCompression(),
+      // 注入模板数据
+      createHtmlPlugin({
+        inject: {
+          data: {
+            ENABLE_ERUDA: env.VITE_ENABLE_ERUDA || 'false',
+          },
+        },
+      }),
+      // 生产环境默认不启用 CDN 加速
+      enableCDN(env.VITE_CDN_DEPS),
+    ],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
+    server: {
+      host: true,
+      // 埋点服务代理
+      proxy: {
+        '^/track': {
+          target: 'http://localhost:8899',
+          changeOrigin: true,
+        },
+        '^/stats': {
+          target: 'http://localhost:8899',
+          changeOrigin: true,
+        },
+        '^/health': {
+          target: 'http://localhost:8899',
+          changeOrigin: true,
+        },
+        '^/dev-api': {
+          target: '',
+        },
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          chunkFileNames: 'static/js/[name]-[hash].js',
+          entryFileNames: 'static/js/[name]-[hash].js',
+          assetFileNames: 'static/[ext]/[name]-[hash].[ext]',
+        },
+      },
+    },
+  }
+})

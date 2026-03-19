@@ -1,0 +1,93 @@
+{
+  "name": "vue3-h5-template",
+  "type": "module",
+  "version": "0.8.4",
+  "license": "MIT",
+  "homepage": "https://yulimchen.github.io/vue3-h5-template/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yulimchen/vue3-h5-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yulimchen/vue3-h5-template/issues"
+  },
+  "engines": {
+    "node": ">= 18",
+    "pnpm": ">= 9"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:track": "node --loader ts-node/esm src/server/index.js",
+    "track": "tsx src/server/index.js",
+    "build": "run-s build-only type-check",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "release": "standard-version",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "body-parser": "^2.2.2",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.6",
+    "dayjs": "^1.11.19",
+    "esbuild": "^0.27.3",
+    "express": "^5.2.1",
+    "morgan": "^1.10.1",
+    "mysql2": "^3.18.2",
+    "normalize.css": "^8.0.1",
+    "nprogress": "^0.2.0",
+    "pinia": "^2.3.1",
+    "tailwind-merge": "^2.6.0",
+    "vant": "^4.9.21",
+    "vue": "^3.5.24",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^7.2.0",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@iconify-icons/fa6-solid": "^1.2.13",
+    "@iconify/vue": "^4.3.0",
+    "@types/mockjs": "^1.0.10",
+    "@types/node": "^22.19.0",
+    "@types/nprogress": "^0.2.3",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitejs/plugin-vue-jsx": "^4.2.0",
+    "@vue/tsconfig": "^0.5.1",
+    "autoprefixer": "^10.4.21",
+    "cnjm-postcss-px-to-viewport": "^1.0.1",
+    "commitlint": "^19.8.1",
+    "eslint": "^9.39.1",
+    "husky": "^9.1.7",
+    "less": "^4.4.2",
+    "mockjs": "^1.1.0",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.5.6",
+    "postcss-rem-to-pixel": "^4.1.2",
+    "standard-version": "^9.5.0",
+    "tailwindcss": "^3.4.18",
+    "typescript": "~5.6.3",
+    "unplugin-auto-import": "^21.0.0",
+    "unplugin-vue-components": "^0.27.5",
+    "vite": "^6.4.1",
+    "vite-plugin-cdn2": "^1.1.0",
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-html": "^3.2.2",
+    "vite-plugin-mock-dev-server": "^1.9.3",
+    "vite-plugin-svg-icons": "^0.1.0",
+    "vue-tsc": "^2.2.12"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "rollup"
+      ],
+      "allowedVersions": {
+        "eslint": "9"
+      }
+    }
+  }
+}
