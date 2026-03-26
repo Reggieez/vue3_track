@@ -43,22 +43,22 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════╗
-║          🎯 埋点服务已启动                           ║
-║                                                           ║
-║   Local:   http://localhost:${PORT}                      ║
-║                                                           ║
-║   接口文档:                                              ║
-║   - GET  /track          埋点上报 (GET)                ║
-║   - POST /track/event    埋点上报 (POST)               ║
-║   - POST /track/stay     停留时间上报                  ║
-║   - POST /track/page-leave 页面离开上报               ║
-║   - GET  /stats/overview 统计概览                     ║
-║   - GET  /stats/pv       PV趋势                       ║
-║   - GET  /stats/uv       UV趋势                       ║
-║   - GET  /stats/pages    页面统计                     ║
-║   - GET  /stats/realtime 实时在线                    ║
-║   - GET  /stats/events   事件列表                     ║
-║                                                           ║
+║          🎯 埋点服务已启动                        ║
+║                                                   ║
+║   Local:   http://localhost:${PORT}                  ║
+║                                                   ║
+║   接口文档:                                       ║
+║   - GET  /track          埋点上报 (GET)           ║
+║   - POST /track/event    埋点上报 (POST)          ║
+║   - POST /track/stay     停留时间上报             ║
+║   - POST /track/page-leave 页面离开上报           ║
+║   - GET  /stats/overview 统计概览                 ║
+║   - GET  /stats/pv       PV趋势                   ║
+║   - GET  /stats/uv       UV趋势                   ║
+║   - GET  /stats/pages    页面统计                 ║
+║   - GET  /stats/realtime 实时在线                 ║
+║   - GET  /stats/events   事件列表                 ║
+║                                                   ║
 ╚═══════════════════════════════════════════════════╝
       `)
     })

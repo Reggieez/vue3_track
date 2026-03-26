@@ -9,15 +9,6 @@ import 'normalize.css/normalize.css'
 import './styles/index.less'
 // tailwindcss
 import './styles/tailwind.css'
-// 埋点SDK
-import { initTrack } from './sdk/track'
-
-// 初始化埋点
-initTrack({
-  autoTrackPV: true,
-  autoTrackLeave: true,
-  debug: import.meta.env.DEV,
-})
 
 initializeDarkMode()
 
