@@ -184,14 +184,3 @@ export function initTrack(route: any) {
 
   console.log('[Track] Initialized, session:', sessionId, 'route:', route)
 }
-
-export default {
-  init: initTrack,
-  sendTrack,
-  trackPV,
-  trackEvent,
-  trackClick,
-  trackPageLeave,
-  getSessionId: () => sessionId,
-  getUserId,
-}

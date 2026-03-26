@@ -11,42 +11,38 @@ const router = express.Router()
  */
 router.get('/stats/overview', async (req, res) => {
   try {
-    const { start_date, end_date } = req.query
+    const { start_date, end_date, user_id } = req.query
 
-    let dateFilter = ''
-    const params: any[] = []
+    // 处理默认时间：近一周
+    const start = start_date || dayjs().subtract(7, 'day').format('YYYY-MM-DD')
+    const end = end_date || dayjs().format('YYYY-MM-DD')
 
-    if (start_date && end_date) {
-      dateFilter = 'WHERE created_at BETWEEN ? AND ?'
-      params.push(start_date, end_date)
+    let whereClause = 'WHERE DATE(created_at) BETWEEN ? AND ?'
+    const params: any[] = [start, end]
+
+    // 处理可选的 user_id
+    if (user_id) {
+      whereClause += ' AND user_id = ?'
+      params.push(user_id)
     }
-    else {
-      const today = dayjs().format('YYYY-MM-DD')
-      dateFilter = 'WHERE DATE(created_at) = ?'
-      params.push(today)
-    }
 
-    // 获取PV
+    // 获取PV (event_type = 'pv'的事件数)
     const pvResult: any = await query(
-      `SELECT COUNT(*) as total FROM track_events ${dateFilter}`,
+      `SELECT COUNT(*) as total FROM track_events ${whereClause} AND event_type = 'pv'`,
       params,
     )
 
-    // 获取UV
+    // 获取UV (网站用户访问数，每个用户一天访问多次算一次)
+    // 逻辑：按天去重 user_id 或 session_id (如果没有user_id)
     const uvResult: any = await query(
-      `SELECT COUNT(DISTINCT user_id) as total FROM track_events ${dateFilter} AND user_id IS NOT NULL`,
+      `SELECT COUNT(DISTINCT CONCAT(DATE(created_at), '_', IFNULL(user_id, session_id))) as total 
+       FROM track_events ${whereClause}`,
       params,
     )
 
-    // 获取会话数
-    const sessionResult: any = await query(
-      `SELECT COUNT(DISTINCT session_id) as total FROM track_events ${dateFilter}`,
-      params,
-    )
-
-    // 获取平均停留时间
+    // 获取用户总逗留时间 (stay)
     const stayResult: any = await query(
-      `SELECT AVG(stay_duration) as avg_duration FROM track_events ${dateFilter} AND event_type = 'stay'`,
+      `SELECT SUM(stay_duration) as total_duration FROM track_events ${whereClause} AND event_type = 'stay'`,
       params,
     )
 
@@ -55,8 +51,7 @@ router.get('/stats/overview', async (req, res) => {
       data: {
         pv: pvResult[0]?.total || 0,
         uv: uvResult[0]?.total || 0,
-        sessions: sessionResult[0]?.total || 0,
-        avg_stay_duration: Number.parseFloat(stayResult[0]?.avg_duration || 0).toFixed(2),
+        stay: Number(stayResult[0]?.total_duration || 0),
       },
     })
   }
@@ -174,6 +169,91 @@ router.get('/stats/pages', async (req, res) => {
   }
   catch (error) {
     console.error('Page stats error:', error)
+    res.status(500).json({ success: false, error: 'Server error' })
+  }
+})
+
+/**
+ * GET /stats/pages/stay - 获取所有页面的停留时间
+ */
+router.get('/stats/pages/stay', async (req, res) => {
+  try {
+    const { start_date, end_date, limit } = req.query
+
+    const start = start_date || dayjs().subtract(7, 'day').format('YYYY-MM-DD')
+    const end = end_date || dayjs().format('YYYY-MM-DD')
+
+    let limitClause = ''
+    if (limit) {
+      const limitNum = Number.parseInt(limit as string)
+      if (!Number.isNaN(limitNum) && limitNum > 0) {
+        limitClause = `LIMIT ${limitNum}`
+      }
+    }
+
+    const results: any = await query(
+      `SELECT 
+        page_url,
+        page_title,
+        SUM(stay_duration) as total_stay_duration
+       FROM track_events 
+       WHERE DATE(created_at) BETWEEN ? AND ?
+         AND event_type = 'stay'
+       GROUP BY page_url, page_title
+       ORDER BY total_stay_duration DESC
+       ${limitClause}`,
+      [start, end],
+    )
+
+    res.json({
+      success: true,
+      data: Array.isArray(results) ? results : [],
+    })
+  }
+  catch (error) {
+    console.error('Page stay stats error:', error)
+    res.status(500).json({ success: false, error: 'Server error' })
+  }
+})
+
+/**
+ * GET /stats/pages/uv - 获取所有页面的用户访问次数
+ */
+router.get('/stats/pages/uv', async (req, res) => {
+  try {
+    const { start_date, end_date, limit } = req.query
+
+    const start = start_date || dayjs().subtract(7, 'day').format('YYYY-MM-DD')
+    const end = end_date || dayjs().format('YYYY-MM-DD')
+
+    let limitClause = ''
+    if (limit) {
+      const limitNum = Number.parseInt(limit as string)
+      if (!Number.isNaN(limitNum) && limitNum > 0) {
+        limitClause = `LIMIT ${limitNum}`
+      }
+    }
+
+    const results: any = await query(
+      `SELECT 
+        page_url,
+        page_title,
+        COUNT(DISTINCT CONCAT(DATE(created_at), '_', IFNULL(user_id, session_id))) as uv
+       FROM track_events 
+       WHERE DATE(created_at) BETWEEN ? AND ?
+       GROUP BY page_url, page_title
+       ORDER BY uv DESC
+       ${limitClause}`,
+      [start, end],
+    )
+
+    res.json({
+      success: true,
+      data: Array.isArray(results) ? results : [],
+    })
+  }
+  catch (error) {
+    console.error('Page uv stats error:', error)
     res.status(500).json({ success: false, error: 'Server error' })
   }
 })

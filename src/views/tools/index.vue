@@ -19,21 +19,23 @@ const router = useRouter()
 const showList: string[] = reactive([])
 
 async function handleSuccessReq() {
-  const { list } = await getListApi()
-  showSuccessToast('请求成功')
-  showList.push(...list)
+  // const { list } = await getListApi()
+  // showSuccessToast('请求成功')
+  // showList.push(...list)
+  showSuccessToast('router.push')
   router.push({ name: 'About' })
 }
 async function handleErrorReq() {
-  try {
-    await getListApiError()
-  }
-  catch (err) {
-    if (import.meta.env.DEV) {
-      console.error('请求错误:', err)
-    }
-    showFailToast('请求有误')
-  }
+  // try {
+  //   await getListApiError()
+  // }
+  // catch (err) {
+  //   if (import.meta.env.DEV) {
+  //     console.error('请求错误:', err)
+  //   }
+  //   showFailToast('请求有误')
+  // }
+  showSuccessToast('router.replace')
   router.replace({ name: 'About' })
 }
 
@@ -70,10 +72,10 @@ const svgIconLocalList = Object.keys(modules).map(key =>
     </div>
     <van-space>
       <van-button type="success" @click="handleSuccessReq">
-        成功请求
+        router.push
       </van-button>
       <van-button type="danger" @click="handleErrorReq">
-        失败请求
+        router.repalce
       </van-button>
     </van-space>
     <div
