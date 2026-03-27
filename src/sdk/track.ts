@@ -33,11 +33,10 @@ function getUserId() {
  */
 export async function sendTrack(params: any) {
   const data = {
+    ...params,
     event_type: params.event_type || 'pv',
     user_id: getUserId(),
     session_id: sessionId,
-    page_url: params.page_url,
-    page_title: params.page_title,
     referrer: params.referrer || document.referrer,
     stay_duration: params.stay_duration || 0,
     ...(params.custom_data || {}),
@@ -46,10 +45,25 @@ export async function sendTrack(params: any) {
   console.log('[Track]', data)
 
   try {
-    // 使用JSONP方式或图片beacon方式，避免跨域问题
-    // 这里使用fetch，保证请求完成
+    // 使用 navigator.sendBeacon 可以确保在页面卸载时请求能够发送成功
+    // 如果不支持 sendBeacon，则回退到 fetch 的 keepalive 模式
+    const { is_leave = false, ...restData } = data
+    if (is_leave) {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([JSON.stringify(restData)], { type: 'application/json' })
+        navigator.sendBeacon(trackUrl, blob)
+      }
+      else {
+        const queryString = new URLSearchParams(restData as any).toString()
+        const urlWithParams = `${trackUrl}?${queryString}`
+        fetch(urlWithParams, { keepalive: true, method: 'GET' }).catch(() => {})
+      }
+
+      return { success: true }
+    }
+
     const response = await axios.get(trackUrl, {
-      params: data,
+      params: restData,
       timeout: 5000,
     })
 
@@ -110,9 +124,6 @@ export async function trackClick(element: string, customData?: Record<string, an
  */
 
 export function trackPageLeave(routeInfo: any) {
-  if (!sessionId)
-    return
-
   const stayDuration = Math.floor((Date.now() - lastStayTime) / 1000)
 
   if (stayDuration >= 1) {
@@ -121,6 +132,7 @@ export function trackPageLeave(routeInfo: any) {
       stay_duration: stayDuration,
       page_url: routeInfo.path,
       page_title: routeInfo.meta.title,
+      is_leave: true, // 标记为离开事件，使用 beacon
     })
   }
 }
@@ -167,20 +179,26 @@ export function initTrack(route: any) {
   // })
 
   // 自动追踪页面离开
-  // 页面隐藏时（切换标签页、关闭页面等）
-  // document.addEventListener('visibilitychange', () => {
-  //   if (document.visibilityState === 'hidden') {
-  //     trackPageLeave()
-  //   }
-  //   else {
-  //     lastStayTime = Date.now()
-  //   }
-  // })
+  // 推荐使用 visibilitychange 和 pagehide 替代 beforeunload，以保证移动端和现代浏览器的兼容性
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      trackPageLeave(route)
+    }
+    else {
+      // 页面重新可见时，重置计时器
+      lastStayTime = Date.now()
+    }
+  })
 
-  // 页面卸载前
-  window.addEventListener('beforeunload', () => {
+  // 为了更好的兼容性（尤其是 Safari），添加 pagehide
+  window.addEventListener('pagehide', () => {
     trackPageLeave(route)
   })
+
+  // 页面卸载前（作为后备，但不推荐仅依赖此事件）
+  // window.addEventListener('beforeunload', () => {
+  //   trackPageLeave(route)
+  // })
 
   console.log('[Track] Initialized, session:', sessionId, 'route:', route)
 }

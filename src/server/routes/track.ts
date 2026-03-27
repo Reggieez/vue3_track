@@ -68,10 +68,12 @@ function parseDeviceInfo(userAgent: string) {
 // ==================== 埋点接口 ====================
 
 /**
- * GET /track - 埋点上报接口
+ * 处理埋点请求的通用逻辑
  */
-router.get('/track', async (req, res) => {
+async function handleTrackRequest(req: express.Request, res: express.Response) {
   try {
+    const params = req.method === 'POST' ? req.body : req.query
+
     const {
       event_type = 'pv',
       user_id = '',
@@ -80,37 +82,13 @@ router.get('/track', async (req, res) => {
       page_title = '',
       referrer = '',
       stay_duration = 0,
-    } = req.query
+    } = params || {}
 
     const ip = getClientIp(req)
     const userAgent = req.headers['user-agent'] || ''
     const deviceInfo = parseDeviceInfo(userAgent as string)
     const skDate = Number.parseInt(dayjs().format('YYYYMMDD'))
     const finalSessionId = (session_id as string) || generateSessionId()
-
-    if (event_type === 'pv') {
-      const existing: any = await query(
-        'SELECT id FROM user_sessions WHERE session_id = ?',
-        [finalSessionId],
-      )
-
-      if (!existing || existing.length === 0) {
-        await query(
-          `INSERT INTO user_sessions (session_id, user_id, first_visit_url, total_pages) 
-           VALUES (?, ?, ?, 1)`,
-          [finalSessionId, user_id || null, page_url],
-        )
-      }
-      else {
-        await query(
-          `UPDATE user_sessions 
-           SET total_pages = total_pages + 1, 
-               last_active_time = NOW() 
-           WHERE session_id = ?`,
-          [finalSessionId],
-        )
-      }
-    }
 
     await query(
       `INSERT INTO track_events 
@@ -132,16 +110,23 @@ router.get('/track', async (req, res) => {
       ],
     )
 
-    res.json({
-      success: true,
-      session_id: finalSessionId,
-    })
+    res.json({ success: true, session_id: finalSessionId })
   }
   catch (error) {
-    console.error('Track error:', error)
+    console.error('Track error:', error, req.data)
     res.status(500).json({ success: false, error: 'Server error' })
   }
-})
+}
+
+/**
+ * GET /track - 埋点上报接口 (兼容 Axios / Fetch)
+ */
+router.get('/track', handleTrackRequest)
+
+/**
+ * POST /track - 埋点上报接口 (兼容 navigator.sendBeacon)
+ */
+router.post('/track', handleTrackRequest)
 
 /**
  * POST /track/event - 埋点上报接口（POST方式）

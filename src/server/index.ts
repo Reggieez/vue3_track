@@ -13,6 +13,7 @@ app.use(cors())
 app.use(morgan('combined'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(express.text()) // 解析 text/plain 类型的 body，这对 navigator.sendBeacon 很重要
 
 // 健康检查
 app.get('/health', (req, res) => {
