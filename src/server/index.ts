@@ -1,9 +1,10 @@
 import cors from 'cors'
 import express from 'express'
 import morgan from 'morgan'
-import { initDatabase } from './init.ts'
-import statsRoutes from './routes/stats.ts'
-import trackRoutes from './routes/track.ts'
+
+// MongoDB 路由和初始化
+import { initMongoDB } from './mongodb/database.ts'
+import mongoTrackRoutes from './mongodb/track.ts'
 
 const app = express()
 const PORT = process.env.PORT || 8899
@@ -20,9 +21,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// 路由
-app.use('/', trackRoutes)
-app.use('/', statsRoutes)
+// 默认路由 (MongoDB 实现，合并了 track 和 track 接口)
+app.use('/', mongoTrackRoutes)
 
 // 404 处理
 app.use((req, res) => {
@@ -38,30 +38,11 @@ app.use((err, req, res, next) => {
 // 启动服务器
 async function startServer() {
   try {
-    // 初始化数据库
-    await initDatabase()
+    // 初始化 MongoDB
+    await initMongoDB()
 
     app.listen(PORT, () => {
-      console.log(`
-╔═══════════════════════════════════════════════════╗
-║          🎯 埋点服务已启动                        ║
-║                                                   ║
-║   Local:   http://localhost:${PORT}                  ║
-║                                                   ║
-║   接口文档:                                       ║
-║   - GET  /track          埋点上报 (GET)           ║
-║   - POST /track/event    埋点上报 (POST)          ║
-║   - POST /track/stay     停留时间上报             ║
-║   - POST /track/page-leave 页面离开上报           ║
-║   - GET  /stats/overview 统计概览                 ║
-║   - GET  /stats/pv       PV趋势                   ║
-║   - GET  /stats/uv       UV趋势                   ║
-║   - GET  /stats/pages    页面统计                 ║
-║   - GET  /stats/realtime 实时在线                 ║
-║   - GET  /stats/events   事件列表                 ║
-║                                                   ║
-╚═══════════════════════════════════════════════════╝
-      `)
+      console.log(`🎯 埋点服务已启动 http://localhost:${PORT}`)
     })
   }
   catch (error) {

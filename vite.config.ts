@@ -61,10 +61,6 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:8899',
           changeOrigin: true,
         },
-        '^/stats': {
-          target: 'http://localhost:8899',
-          changeOrigin: true,
-        },
         '^/health': {
           target: 'http://localhost:8899',
           changeOrigin: true,

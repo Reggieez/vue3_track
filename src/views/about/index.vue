@@ -15,7 +15,7 @@ let stayChart: echarts.ECharts | null = null
 let uvChart: echarts.ECharts | null = null
 
 onMounted(async () => {
-  const res = await axios.get('/stats/overview')
+  const res = await axios.get('/track/overview')
   console.log(res.data.data)
   data.value = res.data.data
 
@@ -28,7 +28,7 @@ onMounted(async () => {
   }
 
   // Fetch stay data
-  const stayRes = await axios.get('/stats/pages/stay', { params: { limit: 10 } })
+  const stayRes = await axios.get('/track/pages/stay', { params: { limit: 10 } })
   const stayData = stayRes.data?.data || []
 
   // Render stay chart
@@ -56,7 +56,7 @@ onMounted(async () => {
   }
 
   // Fetch UV data
-  const uvRes = await axios.get('/stats/pages/uv', { params: { limit: 10 } })
+  const uvRes = await axios.get('/track/pages/uv', { params: { limit: 10 } })
   const uvData = uvRes.data?.data || []
 
   // Render UV chart
