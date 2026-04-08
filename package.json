@@ -29,6 +29,8 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.18.2",
+    "@influxdata/influxdb-client": "^1.35.0",
     "axios": "^1.13.2",
     "body-parser": "^2.2.2",
     "clsx": "^2.1.1",

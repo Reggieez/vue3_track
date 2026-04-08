@@ -1,6 +1,16 @@
 import cors from 'cors'
 import express from 'express'
 import morgan from 'morgan'
+// ClickHouse 路由和初始化
+import { initClickHouse } from './click_house/database.ts'
+import chStatsRoutes from './click_house/stats.ts'
+import chTrackRoutes from './click_house/track.ts'
+
+// InfluxDB 路由和初始化
+import { initInfluxDB } from './influxdb/database.ts'
+import influxStatsRoutes from './influxdb/stats.ts'
+import influxTrackRoutes from './influxdb/track.ts'
+
 import { initDatabase } from './init.ts'
 import statsRoutes from './routes/stats.ts'
 import trackRoutes from './routes/track.ts'
@@ -20,9 +30,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// 路由
+// 默认路由 (MySQL 实现)
 app.use('/', trackRoutes)
 app.use('/', statsRoutes)
+
+// ==========================================
+// 可选: 新型时序数据库路由 (加上前缀以区分测试)
+// ==========================================
+// 测试 ClickHouse: GET /ch/track, GET /ch/stats/overview
+app.use('/ch', chTrackRoutes)
+app.use('/ch', chStatsRoutes)
+
+// 测试 InfluxDB: GET /influx/track, GET /influx/stats/overview
+app.use('/influx', influxTrackRoutes)
+app.use('/influx', influxStatsRoutes)
 
 // 404 处理
 app.use((req, res) => {
@@ -38,8 +59,12 @@ app.use((err, req, res, next) => {
 // 启动服务器
 async function startServer() {
   try {
-    // 初始化数据库
+    // 初始化 MySQL 数据库
     await initDatabase()
+
+    // 初始化时序数据库 (仅作为示例，如果没有启动对应服务可能会报错)
+    initClickHouse().catch(() => console.warn('ClickHouse not running, skipped.'))
+    initInfluxDB().catch(() => console.warn('InfluxDB not running, skipped.'))
 
     app.listen(PORT, () => {
       console.log(`
@@ -48,18 +73,10 @@ async function startServer() {
 ║                                                   ║
 ║   Local:   http://localhost:${PORT}                  ║
 ║                                                   ║
-║   接口文档:                                       ║
-║   - GET  /track          埋点上报 (GET)           ║
-║   - POST /track/event    埋点上报 (POST)          ║
-║   - POST /track/stay     停留时间上报             ║
-║   - POST /track/page-leave 页面离开上报           ║
-║   - GET  /stats/overview 统计概览                 ║
-║   - GET  /stats/pv       PV趋势                   ║
-║   - GET  /stats/uv       UV趋势                   ║
-║   - GET  /stats/pages    页面统计                 ║
-║   - GET  /stats/realtime 实时在线                 ║
-║   - GET  /stats/events   事件列表                 ║
-║                                                   ║
+║   接口前缀:                                       ║
+║   - 默认(MySQL):  /track, /stats/*                ║
+║   - ClickHouse:   /ch/track, /ch/stats/*          ║
+║   - InfluxDB:     /influx/track, /influx/stats/*  ║
 ╚═══════════════════════════════════════════════════╝
       `)
     })
