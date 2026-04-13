@@ -28,10 +28,45 @@ function getUserId() {
   return localStorage.getItem('user_id') || ''
 }
 
+// 本地事件队列 (利用 requestIdleCallback 进行空闲时打点)
+const eventQueue: any[] = []
+let isProcessingQueue = false
+
+function processQueue() {
+  if (eventQueue.length === 0) {
+    isProcessingQueue = false
+    return
+  }
+
+  isProcessingQueue = true
+  const data = eventQueue.shift()
+
+  // 方案B：使用 1x1 透明 GIF 上报，不阻塞主线程，没有跨域限制
+  const queryString = new URLSearchParams(data as any).toString()
+  const urlWithParams = `${trackUrl}?${queryString}`
+
+  const img = new Image()
+  img.onload = img.onerror = () => {
+    // 当前请求完成后，如果有剩余任务，继续在空闲时处理
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(processQueue)
+    }
+    else {
+      setTimeout(processQueue, 50)
+    }
+  }
+  img.src = urlWithParams
+}
+
 /**
  * 发送埋点请求
  */
 export async function sendTrack(params: any) {
+  // 如果没有 session，直接生成
+  if (!sessionId) {
+    sessionId = generateSessionId()
+  }
+
   const data = {
     ...params,
     event_type: params.event_type || 'pv',
@@ -45,9 +80,9 @@ export async function sendTrack(params: any) {
   console.log('[Track]', data)
 
   try {
-    // 使用 navigator.sendBeacon 可以确保在页面卸载时请求能够发送成功
-    // 如果不支持 sendBeacon，则回退到 fetch 的 keepalive 模式
     const { is_leave = false, ...restData } = data
+
+    // 1. 如果是页面离开 (Stay 埋点)，必须使用 navigator.sendBeacon 保证在卸载前发出去
     if (is_leave) {
       if (navigator.sendBeacon) {
         const blob = new Blob([JSON.stringify(restData)], { type: 'application/json' })
@@ -58,24 +93,26 @@ export async function sendTrack(params: any) {
         const urlWithParams = `${trackUrl}?${queryString}`
         fetch(urlWithParams, { keepalive: true, method: 'GET' }).catch(() => {})
       }
-
       return { success: true }
     }
 
-    const response = await axios.get(trackUrl, {
-      params: restData,
-      timeout: 5000,
-    })
+    // 2. 如果是正常的 PV/Click 等埋点，使用 Image 和 requestIdleCallback 降级处理
+    eventQueue.push(restData)
 
-    // 更新session_id
-    sessionId = generateSessionId()
+    if (!isProcessingQueue) {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(processQueue)
+      }
+      else {
+        setTimeout(processQueue, 50)
+      }
+    }
 
-    return response.data
+    return { success: true, session_id: sessionId }
   }
   catch (error) {
-    console.error('[Track Error]', error)
-    // 静默失败，不影响主业务
-    return null
+    console.error('[Track] Error:', error)
+    return { success: false }
   }
 }
 

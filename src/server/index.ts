@@ -5,6 +5,7 @@ import morgan from 'morgan'
 // MongoDB 路由和初始化
 import { initMongoDB } from './mongodb/database.ts'
 import mongoTrackRoutes from './mongodb/track.ts'
+import { startTrackConsumer } from './worker.ts'
 
 const app = express()
 const PORT = process.env.PORT || 8899
@@ -40,6 +41,9 @@ async function startServer() {
   try {
     // 初始化 MongoDB
     await initMongoDB()
+
+    // 启动基于 Redis/Memory 队列的消费者 (高并发支持)
+    startTrackConsumer()
 
     app.listen(PORT, () => {
       console.log(`🎯 埋点服务已启动 http://localhost:${PORT}`)

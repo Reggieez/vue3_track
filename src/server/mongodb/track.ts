@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import express from 'express'
+import { pushTrackEvent } from '../queue.ts'
 import { getDb } from './database.ts'
 
 const router = express.Router()
@@ -109,9 +110,9 @@ async function handleTrackRequest(req: express.Request, res: express.Response) {
       )
     }
 
-    // 2. 插入埋点事件
-    const trackEvents = db.collection('track_events')
-    await trackEvents.insertOne({
+    // ======= 方案A: 不再等待数据库写入，而是推入 Redis 队列并立即响应前端 =======
+
+    const eventData = {
       session_id: finalSessionId,
       user_id: user_id || null,
       event_type: String(event_type),
@@ -124,9 +125,23 @@ async function handleTrackRequest(req: express.Request, res: express.Response) {
       device_info: deviceInfo,
       sk_date: skDate,
       created_at: new Date(),
-    })
+    }
 
-    res.json({ success: true, session_id: finalSessionId })
+    // 异步推入队列 (如果是 Redis 则是 LPush，极快；若是 Memory Array 则是 unshift，基本 O(1) 操作)
+    pushTrackEvent(eventData).catch(e => console.error('Push queue error:', e))
+
+    // ======= 方案B: 前端降级策略支持 =======
+    // 1. 如果请求是 GET，通常意味着前端使用了 1x1 透明 GIF 进行无阻塞打点
+    if (req.method === 'GET') {
+      // 1x1 透明 GIF base64
+      const buf = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
+      res.set('Content-Type', 'image/gif')
+      res.status(200).send(buf)
+      return
+    }
+
+    // 2. 如果请求是 POST，说明前端使用了 navigator.sendBeacon
+    res.status(204).end()
   }
   catch (error) {
     console.error('[MongoDB] Track error:', error)
