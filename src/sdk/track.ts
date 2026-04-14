@@ -3,22 +3,52 @@ import { debounce } from 'lodash'
 
 const trackUrl = import.meta.env.VITE_TRACK_URL || '/track'
 
+const SESSION_TIMEOUT = 30 * 60 * 1000
+
 // 状态管理
 let sessionId = ''
 let lastTrackUrl = ''
 let lastStayTime = 0
+let lastActivityTime = 0
 
 /**
  * 生成唯一会话ID
  */
-export function generateSessionId() {
-  const stored = localStorage.getItem('track_session_id')
-  if (stored)
-    return stored
-
+function createNewSessionId() {
   const newId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   localStorage.setItem('track_session_id', newId)
+  localStorage.setItem('track_session_time', String(Date.now()))
   return newId
+}
+
+/**
+ * 获取或创建会话ID（带30分钟过期机制）
+ */
+export function generateSessionId() {
+  const stored = localStorage.getItem('track_session_id')
+  const storedTime = localStorage.getItem('track_session_time')
+
+  if (stored && storedTime) {
+    const elapsed = Date.now() - Number(storedTime)
+    if (elapsed < SESSION_TIMEOUT) {
+      localStorage.setItem('track_session_time', String(Date.now()))
+      return stored
+    }
+  }
+
+  return createNewSessionId()
+}
+
+/**
+ * 刷新会话活跃时间
+ */
+function refreshSession() {
+  const now = Date.now()
+  if (lastActivityTime && (now - lastActivityTime > SESSION_TIMEOUT)) {
+    sessionId = createNewSessionId()
+  }
+  lastActivityTime = now
+  localStorage.setItem('track_session_time', String(now))
 }
 
 /**
@@ -26,6 +56,13 @@ export function generateSessionId() {
  */
 function getUserId() {
   return localStorage.getItem('user_id') || ''
+}
+
+/**
+ * 获取用户名
+ */
+function getUserName() {
+  return localStorage.getItem('user_name') || ''
 }
 
 // 本地事件队列 (利用 requestIdleCallback 进行空闲时打点)
@@ -62,7 +99,8 @@ function processQueue() {
  * 发送埋点请求
  */
 export async function sendTrack(params: any) {
-  // 如果没有 session，直接生成
+  refreshSession()
+
   if (!sessionId) {
     sessionId = generateSessionId()
   }
@@ -71,6 +109,7 @@ export async function sendTrack(params: any) {
     ...params,
     event_type: params.event_type || 'pv',
     user_id: getUserId(),
+    user_name: getUserName(),
     session_id: sessionId,
     referrer: params.referrer || document.referrer,
     stay_duration: params.stay_duration || 0,

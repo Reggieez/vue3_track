@@ -76,6 +76,7 @@ async function handleTrackRequest(req: express.Request, res: express.Response) {
     const {
       event_type = 'pv',
       user_id = '',
+      user_name = '',
       session_id = '',
       page_url = '',
       page_title = '',
@@ -88,33 +89,53 @@ async function handleTrackRequest(req: express.Request, res: express.Response) {
     const deviceInfo = parseDeviceInfo(userAgent as string)
     const skDate = Number.parseInt(dayjs().format('YYYYMMDD'))
     const finalSessionId = (session_id as string) || generateSessionId()
+    const now = new Date()
 
-    // 1. 处理会话 (session)
+    // ======= 1. 处理 user_sessions 集合 (用户会话表) =======
+    const userSessions = db.collection('user_sessions')
     if (event_type === 'pv') {
-      const userSessions = db.collection('user_sessions')
-
-      // 使用 upsert，如果不存在就插入，存在就更新
       await userSessions.updateOne(
         { session_id: finalSessionId },
         {
           $setOnInsert: {
             session_id: finalSessionId,
             user_id: user_id || null,
-            first_visit_url: page_url,
-            created_at: new Date(),
+            user_name: user_name || null,
+            start_time: now,
+            start_page_url: page_url,
+            start_page_title: page_title,
+            created_at: now,
           },
-          $inc: { total_pages: 1 },
-          $set: { updated_at: new Date() },
+          $inc: { page_views: 1 },
+          $set: {
+            end_time: now,
+            latest_page_url: page_url,
+            latest_page_title: page_title,
+            updated_at: now,
+          },
         },
         { upsert: true },
       )
     }
+    else if (event_type === 'stay') {
+      await userSessions.updateOne(
+        { session_id: finalSessionId },
+        {
+          $set: {
+            end_time: now,
+            duration: Number.parseInt(String(stay_duration)) || 0,
+            updated_at: now,
+          },
+        },
+      )
+    }
 
-    // ======= 方案A: 不再等待数据库写入，而是推入 Redis 队列并立即响应前端 =======
+    // ======= 2. 处理 track_events 集合 (埋点事件流水表) =======
 
     const eventData = {
       session_id: finalSessionId,
       user_id: user_id || null,
+      user_name: user_name || null,
       event_type: String(event_type),
       page_url: String(page_url),
       page_title: String(page_title),
@@ -124,7 +145,7 @@ async function handleTrackRequest(req: express.Request, res: express.Response) {
       user_agent: String(userAgent),
       device_info: deviceInfo,
       sk_date: skDate,
-      created_at: new Date(),
+      created_at: now,
     }
 
     // 异步推入队列 (如果是 Redis 则是 LPush，极快；若是 Memory Array 则是 unshift，基本 O(1) 操作)

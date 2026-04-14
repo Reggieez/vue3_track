@@ -29,14 +29,17 @@ export function getDb(): Db {
 }
 
 async function initIndexes(db: Db) {
+  const users = db.collection('users')
+  await users.createIndex({ user_id: 1 }, { unique: true })
+
   const userSessions = db.collection('user_sessions')
   await userSessions.createIndex({ session_id: 1 }, { unique: true })
 
   const trackEvents = db.collection('track_events')
-  // 为了时间范围查询和分组统计优化
   await trackEvents.createIndex({ created_at: -1 })
   await trackEvents.createIndex({ event_type: 1, created_at: -1 })
   await trackEvents.createIndex({ sk_date: -1 })
+  await trackEvents.createIndex({ session_id: 1 })
   
   console.log('MongoDB indexes initialized.')
 }
